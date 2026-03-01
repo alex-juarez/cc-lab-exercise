@@ -9,6 +9,7 @@ set -e  # Exit on error
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}Starting Factory Inventory Management System...${NC}\n"
@@ -16,6 +17,74 @@ echo -e "${BLUE}Starting Factory Inventory Management System...${NC}\n"
 # Get the project root directory (parent of scripts directory)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+
+# ── Detect OS ─────────────────────────────────────────────────────────────────
+OS="$(uname -s)"
+case "${OS}" in
+    Linux*)               MACHINE=Linux ;;
+    Darwin*)              MACHINE=macOS ;;
+    MINGW*|MSYS*|CYGWIN*) MACHINE=Windows ;;
+    *)
+        echo -e "${RED}Unsupported OS: ${OS}. Supported: macOS, Linux, Windows (Git Bash).${NC}"
+        exit 1
+        ;;
+esac
+
+# ── Install uv (Python package/venv manager) ──────────────────────────────────
+if ! command -v uv &> /dev/null; then
+    echo -e "${YELLOW}uv not found. Installing uv...${NC}"
+    if [ "$MACHINE" = "Windows" ]; then
+        powershell.exe -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+    else
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+    fi
+    export PATH="$HOME/.local/bin:$PATH"
+    echo -e "${GREEN}uv installed successfully.${NC}"
+fi
+
+# ── Install Node.js / npm ─────────────────────────────────────────────────────
+if ! command -v npm &> /dev/null; then
+    echo -e "${YELLOW}npm not found. Installing Node.js and npm...${NC}"
+    if [ "$MACHINE" = "macOS" ]; then
+        if command -v brew &> /dev/null; then
+            brew install node
+        else
+            # Homebrew not available — install Node.js via nvm
+            echo -e "${YELLOW}Homebrew not found. Installing Node.js via nvm...${NC}"
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm install --lts
+        fi
+    elif [ "$MACHINE" = "Linux" ]; then
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y nodejs npm
+        elif command -v dnf &> /dev/null; then
+            sudo dnf install -y nodejs npm
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y nodejs npm
+        else
+            echo -e "${RED}No supported package manager found (apt-get, dnf, yum).${NC}"
+            echo -e "${RED}Please install Node.js manually: https://nodejs.org${NC}"
+            exit 1
+        fi
+    elif [ "$MACHINE" = "Windows" ]; then
+        if command -v winget &> /dev/null; then
+            winget install --id OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
+            export PATH="/c/Program Files/nodejs:$PATH"
+        elif command -v choco &> /dev/null; then
+            choco install nodejs-lts -y
+        elif command -v scoop &> /dev/null; then
+            scoop install nodejs-lts
+        else
+            echo -e "${RED}No supported package manager found (winget, choco, scoop).${NC}"
+            echo -e "${RED}Please install Node.js manually: https://nodejs.org${NC}"
+            exit 1
+        fi
+    fi
+    echo -e "${GREEN}Node.js and npm installed successfully.${NC}"
+fi
 
 # Check if backend dependencies are installed
 if [ ! -d "$PROJECT_ROOT/server/.venv" ]; then
