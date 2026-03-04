@@ -34,6 +34,13 @@ case "${OS}" in
         ;;
 esac
 
+# Set Python command: Windows Git Bash only knows "python", not "python3"
+if [ "$MACHINE" = "Windows" ]; then
+    PYTHON_CMD="python"
+else
+    PYTHON_CMD="python3"
+fi
+
 # ── Install uv (Python package/venv manager) ──────────────────────────────────
 if ! command -v uv &> /dev/null; then
     echo -e "${YELLOW}uv not found. Installing uv...${NC}"
@@ -108,7 +115,7 @@ fi
 # Start backend server in background
 echo -e "${GREEN}Starting backend server on http://localhost:8001${NC}"
 cd "$PROJECT_ROOT/server"
-uv run python3 main.py > /tmp/inventory-backend.log 2>&1 &
+uv run $PYTHON_CMD main.py > /tmp/inventory-backend.log 2>&1 &
 BACKEND_PID=$!
 
 # Wait a moment for backend to start
